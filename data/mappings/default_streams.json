@@ -1,0 +1,24 @@
+{
+  "streams": [
+    {
+      "stream_name": "HeartRate",
+      "stream_type": "HR",
+      "enabled": true,
+      "channels": [
+        {
+          "sample_index": 0,
+          "hub_channel_id": "physio.heart_rate_bpm",
+          "unit": "bpm",
+          "scale": 1.0,
+          "label": "Heart rate"
+        }
+      ]
+    },
+    {
+      "stream_name": "XsensMVN",
+      "stream_type": "MoCap",
+      "enabled": true,
+      "channels": []
+    }
+  ]
+}
