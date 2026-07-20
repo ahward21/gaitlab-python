@@ -9,7 +9,6 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QMainWindow,
     QPushButton,
     QSplitter,
@@ -24,6 +23,7 @@ from gaitlab.ui.context import LabContext
 from gaitlab.ui.graph_workbench import GraphWorkbench
 from gaitlab.ui.help import tip
 from gaitlab.ui.metrics_panel import MetricsPanel
+from gaitlab.ui.session_panel import SessionPanel
 from gaitlab.ui.streams_panel import StreamsPanel
 
 
@@ -35,40 +35,44 @@ class MainWindow(QMainWindow):
         self.resize(1280, 800)
 
         self._streams = StreamsPanel(self.ctx)
+        self._session = SessionPanel(self.ctx)
         self._channels = ChannelsPanel(self.ctx)
         self._metrics = MetricsPanel(self.ctx)
         self._graphs = GraphWorkbench(self.ctx)
 
         left_tabs = QTabWidget()
         left_tabs.addTab(self._streams, "Connections")
+        left_tabs.addTab(self._session, "Participant")
         left_tabs.addTab(self._channels, "Channels")
         left_tabs.addTab(self._metrics, "Metrics")
-        tip(left_tabs, "Connections → live Channels → optional Metrics formulas. Graphs are optional on the right.")
+        tip(
+            left_tabs,
+            "Typical flow: Connections → Participant → Channels → Record. Metrics & graphs are optional.",
+        )
 
         left = QWidget()
         left_l = QVBoxLayout(left)
         left_l.addWidget(left_tabs, 1)
 
-        self._session = QLineEdit("session")
-        self._session.setMaximumWidth(180)
-        tip(self._session, "Name used in the CSV filename under ~/GaitLabCaptures/")
         self._rec_btn = QPushButton("● Record")
-        tip(self._rec_btn, "Start/stop CSV of all current hub channels (raw results).")
+        tip(
+            self._rec_btn,
+            "Start/stop CSV of all hub channels. Uses Participant + session fields for the filename & header.",
+        )
         self._rec_btn.clicked.connect(self._toggle_record)
         self._rec_path = QLabel("")
         self._rec_path.setStyleSheet("color: #8a9;")
+        self._rec_path.setWordWrap(True)
 
         self._show_graphs = QCheckBox("Show graphs")
         self._show_graphs.setChecked(False)
-        tip(self._show_graphs, "Optional. Main workflow is Channels + Record; enable for live plots.")
+        tip(self._show_graphs, "Optional live plots. Main workflow is Channels + Record.")
         self._show_graphs.toggled.connect(self._toggle_graphs)
 
         top = QHBoxLayout()
         top.addWidget(QLabel("GaitLab"))
         top.addStretch(1)
         top.addWidget(self._show_graphs)
-        top.addWidget(QLabel("Session"))
-        top.addWidget(self._session)
         top.addWidget(self._rec_btn)
         top.addWidget(self._rec_path, 1)
 
@@ -87,7 +91,7 @@ class MainWindow(QMainWindow):
 
         self.setStatusBar(QStatusBar())
         self.statusBar().showMessage(
-            "Raw results first: connect → Channels → Record. Metrics & graphs are optional."
+            "Connect → set Participant → watch Channels → Record. Open Metrics for custom formulas."
         )
 
         self._ui_tick = 0
@@ -111,15 +115,22 @@ class MainWindow(QMainWindow):
             self._rec_path.setText(f"Saved: {path}" if path else "")
             self.statusBar().showMessage("Recording stopped", 3000)
         else:
+            info = self._session.session_info()
             parts = []
             for s in self.ctx.lsl.connected_summaries():
                 parts.append(f"LSL:{s['name']}/{s['type']}")
             xs = self.ctx.xsens.summary()
             if xs["connected"]:
                 parts.append(f"UDP:{xs['bound_port']}")
+            meta = info.metadata()
+            meta["streams"] = ", ".join(parts) if parts else "none"
+            opts = self._session.recording_options()
             path = self.ctx.recorder.start(
-                self._session.text().strip() or "session",
-                metadata={"streams": ", ".join(parts) if parts else "none"},
+                info.filename_base(),
+                metadata=meta,
+                output_name=opts["output_name"],
+                sample_mode=opts["sample_mode"],
+                sample_value=opts["sample_value"],
             )
             self._rec_btn.setText("■ Stop")
             self._rec_path.setText(str(path))
@@ -134,7 +145,6 @@ class MainWindow(QMainWindow):
         if self._ui_tick % 4 == 0:
             self._channels.refresh()
             self._metrics.refresh_preview()
-            # keep UDP status fresh
             if hasattr(self._streams, "_refresh_connected_label"):
                 self._streams._refresh_connected_label()
         if self.ctx.recorder.is_recording:

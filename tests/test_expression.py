@@ -40,3 +40,23 @@ def test_extract_rhs_identifiers():
 def test_extract_no_equals():
     ids = extract_rhs_identifiers("a * b")
     assert ids == ["a", "b"]
+
+
+def test_sqrt_and_sq():
+    ok, val = try_evaluate("y = sqrt(sq(x) + sq(z))", {"x": 3.0, "z": 4.0})
+    assert ok
+    assert abs(val - 5.0) < 1e-6
+
+
+def test_power_ops():
+    ok, val = try_evaluate("x^2", {"x": 4.0})
+    assert ok
+    assert abs(val - 16.0) < 1e-6
+    ok2, val2 = try_evaluate("2 * 3^2", {})
+    assert ok2
+    assert abs(val2 - 18.0) < 1e-6
+
+
+def test_extract_skips_functions():
+    ids = extract_rhs_identifiers("y = sqrt(x) + sq(z)")
+    assert ids == ["x", "z"]

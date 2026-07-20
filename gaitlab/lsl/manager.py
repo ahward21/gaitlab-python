@@ -135,6 +135,9 @@ class LslManager:
                 entry.label or entry.hub_channel_id,
                 entry.unit,
             )
+            # Seed hub so Channels / Metrics dropdowns list every stream channel immediately.
+            if self.hub.try_get(entry.hub_channel_id) is None:
+                self.hub.publish(entry.hub_channel_id, 0.0, entry.unit)
 
         key = self._key(mapping.stream_name, mapping.stream_type)
         with self._lock:

@@ -44,8 +44,9 @@ class ChannelsPanel(QWidget):
         layout.addWidget(QLabel("Live hub channels"))
         layout.addWidget(
             help_banner(
-                "This is the raw results view. Values update while streams are connected. "
-                "Record from the top bar to save them as CSV."
+                "Live channels from whatever you connected (LSL / Xsens UDP) plus custom metrics. "
+                "Connect an Xsens suit and every segment channel (xsens.segNN.x/y/z, or LSL ch000…) "
+                "appears here as data arrives. Record from the top bar to save CSV."
             )
         )
         layout.addLayout(bar)
@@ -60,11 +61,9 @@ class ChannelsPanel(QWidget):
 
     def refresh(self) -> None:
         filt = (self._filter.text() or "").strip().lower()
+        # Only channels that exist on the hub (connected streams + applied metrics).
         snap = self.ctx.hub.snapshot_with_units()
         ids = list(snap.keys())
-        for info in channels.catalog_list():
-            if info.id not in snap and info.id.lower() not in {i.lower() for i in ids}:
-                ids.append(info.id)
 
         selected = self.selected_channel_id()
         # In-place update when row set is unchanged (keeps selection).

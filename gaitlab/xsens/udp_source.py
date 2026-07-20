@@ -74,10 +74,13 @@ class XsensUdpSource:
         self._bound_port = bound
         self.connected = True
         self._labels_registered = False
+        # Pre-register typical full-body segment channels so Channels/Metrics lists
+        # show Xsens sensors immediately (updated when the first pose arrives).
+        self._register_segment_channels(23)
         self._stop.clear()
         self._thread = threading.Thread(target=self._loop, name="XsensUdp", daemon=True)
         self._thread.start()
-        self._status(note)
+        self._status(note + " Channels: xsens.seg00…seg22 .x/.y/.z ready.")
         return True
 
     def stop(self) -> None:
@@ -170,7 +173,8 @@ class XsensUdpSource:
             return
 
         self.frames_received += 1
-        register = not self._labels_registered
+        if segment_count > 23 or not self._labels_registered:
+            self._register_segment_channels(segment_count)
         for s in range(segment_count):
             base = offset + s * bytes_per
             raw_x = _be_f32(data, base + 4)
@@ -182,17 +186,23 @@ class XsensUdpSource:
             self.hub.publish(cx, raw_x, "m")
             self.hub.publish(cy, raw_y, "m")
             self.hub.publish(cz, raw_z, "m")
-            if register:
-                channels.register_live_channel(cx, f"Xsens seg{s} X", "m")
-                channels.register_live_channel(cy, f"Xsens seg{s} Y", "m")
-                channels.register_live_channel(cz, f"Xsens seg{s} Z", "m")
             if self.publish_quaternions:
                 self.hub.publish(f"xsens.seg{s:02d}.qw", _be_f32(data, base + 16))
                 self.hub.publish(f"xsens.seg{s:02d}.qx", _be_f32(data, base + 20))
                 self.hub.publish(f"xsens.seg{s:02d}.qy", _be_f32(data, base + 24))
                 self.hub.publish(f"xsens.seg{s:02d}.qz", _be_f32(data, base + 28))
-        if register:
-            self._labels_registered = True
+
+    def _register_segment_channels(self, segment_count: int) -> None:
+        for s in range(max(0, segment_count)):
+            channels.register_live_channel(f"xsens.seg{s:02d}.x", f"Xsens seg{s} X", "m")
+            channels.register_live_channel(f"xsens.seg{s:02d}.y", f"Xsens seg{s} Y", "m")
+            channels.register_live_channel(f"xsens.seg{s:02d}.z", f"Xsens seg{s} Z", "m")
+            # Seed hub so Channels/Metrics lists show them before the first sample.
+            if self.hub.try_get(f"xsens.seg{s:02d}.x") is None:
+                self.hub.publish(f"xsens.seg{s:02d}.x", 0.0, "m")
+                self.hub.publish(f"xsens.seg{s:02d}.y", 0.0, "m")
+                self.hub.publish(f"xsens.seg{s:02d}.z", 0.0, "m")
+        self._labels_registered = True
 
 
 def _be_f32(data: bytes, offset: int) -> float:
