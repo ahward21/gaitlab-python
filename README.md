@@ -1,3 +1,4 @@
+
 # GaitLab — Python LSL / UDP light lab
 
 Standalone desktop app for raw sensor streams, custom metric formulas, optional live graphs, and CSV recording.
@@ -17,13 +18,33 @@ Standalone desktop app for raw sensor streams, custom metric formulas, optional 
 
 ## Install / run
 
+The GitHub repo is named **`gaitlab-python`**. After you download or clone, open a terminal **inside that folder** (not the parent).
+
+**Option A — clone**
+
 ```bash
-cd python-gait-lab
+git clone https://github.com/ahward21/gaitlab-python.git
+cd gaitlab-python
+```
+
+**Option B — ZIP download**
+
+GitHub names the extracted folder `gaitlab-python-master` (or `gaitlab-python-main`). Use that name:
+
+```bash
+cd gaitlab-python-master
+```
+
+Then (Windows):
+
+```bash
 python -m venv .venv
 .venv\Scripts\activate
 pip install -e ".[dev]"
 gaitlab
 ```
+
+macOS / Linux: use `source .venv/bin/activate` instead of `.venv\Scripts\activate`.
 
 ## Typical workflow
 
