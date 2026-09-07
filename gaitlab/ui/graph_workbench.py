@@ -202,6 +202,21 @@ class GraphPanelWidget(QWidget):
             self.panel.x_channel_id = cid
             self._rebuild_curves()
 
+    def reset_time_axis(self) -> None:
+        """Drop time-series history so the next tick restarts from t=0.
+
+        Used when the clock feeding the graph discontinues — e.g. a session
+        player seek or Stop rewinds virtual time backwards.
+        """
+        self._t0 = None
+        for buf in self._buffers.values():
+            buf.clear()
+        self._xy_buf.clear()
+        for cid, curve in self._curves.items():
+            curve.setData([], [])
+        if self._xy_curve is not None:
+            self._xy_curve.setData([], [])
+
     def tick(self, t: float) -> None:
         if self.panel.plot_mode == "xy":
             self._tick_xy()
@@ -294,6 +309,11 @@ class GraphWorkbench(QWidget):
             return
         for p in self._panels:
             p.tick(t)
+
+    def reset_time_axis(self) -> None:
+        """Reset every panel's time buffer — call on virtual-clock discontinuity."""
+        for p in self._panels:
+            p.reset_time_axis()
 
     def capture_profile(self, name: str = "Untitled") -> GraphProfile:
         return GraphProfile(

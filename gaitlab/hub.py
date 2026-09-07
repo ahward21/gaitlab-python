@@ -107,3 +107,15 @@ class DataHub:
             self._order.clear()
             self._key_map.clear()
             self._updated_at.clear()
+
+    def reset_values(self) -> None:
+        """Zero out every channel value while keeping ids, order, units, and listeners.
+
+        Used by the session player before a rewind so `hub.get_or_default` on any
+        channel returns a clean baseline instead of a stale post-seek value. Does
+        not fire listeners (a rewind reseeds the same channels within microseconds).
+        """
+        with self._lock:
+            for cid in self._order:
+                self._values[cid] = 0.0
+            self._updated_at.clear()

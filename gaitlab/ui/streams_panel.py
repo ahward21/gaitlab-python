@@ -170,9 +170,28 @@ class StreamsPanel(QWidget):
         self._udp_char.setValue(0)
         tip(self._udp_char, "MVN character id to accept (usually 0).")
 
+        from PySide6.QtWidgets import QCheckBox
+        self._udp_publish_quats = QCheckBox("Publish quaternions (qw/qx/qy/qz per segment)")
+        self._udp_publish_quats.setChecked(self.ctx.xsens.publish_quaternions)
+        tip(
+            self._udp_publish_quats,
+            "Turn on for joint-angle scripts (hip / knee / ankle). Adds 92 extra channels "
+            "(23 segments × 4 quat components) on top of the 69 XYZ channels.",
+        )
+        self._udp_publish_joints = QCheckBox("Publish joint angles (X/Y/Z Euler per joint)")
+        self._udp_publish_joints.setChecked(self.ctx.xsens.publish_joint_angles)
+        tip(
+            self._udp_publish_joints,
+            "Turn on to receive MVN Streamer's MXTP20 joint-angle packets. Publishes "
+            "xsens.joint.<label>.x/.y/.z (22 joints × 3 axes = 66 channels). "
+            "Enable the 'Joint Angles' datagram in MVN Analyze's Network Streamer settings.",
+        )
+
         form.addRow("Primary port", self._udp_port)
         form.addRow("Fallback ports", self._udp_fallbacks)
         form.addRow("Character id", self._udp_char)
+        form.addRow(self._udp_publish_quats)
+        form.addRow(self._udp_publish_joints)
 
         start_btn = QPushButton("Start listening")
         tip(start_btn, "Bind UDP and publish raw segment positions as xsens.segNN.x/y/z on the hub.")
@@ -273,7 +292,13 @@ class StreamsPanel(QWidget):
                 except ValueError:
                     QMessageBox.warning(self, "UDP", f"Invalid fallback port: {part}")
                     return
-        self.ctx.xsens.configure(port, fallbacks, int(self._udp_char.value()))
+        self.ctx.xsens.configure(
+            port,
+            fallbacks,
+            int(self._udp_char.value()),
+            publish_quaternions=self._udp_publish_quats.isChecked(),
+            publish_joint_angles=self._udp_publish_joints.isChecked(),
+        )
         ok = self.ctx.xsens.start()
         if not ok:
             QMessageBox.warning(self, "UDP", self._status.text() or "Bind failed")

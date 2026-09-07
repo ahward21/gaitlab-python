@@ -23,7 +23,9 @@ from gaitlab.ui.context import LabContext
 from gaitlab.ui.graph_workbench import GraphWorkbench
 from gaitlab.ui.help import tip
 from gaitlab.ui.metrics_panel import MetricsPanel
+from gaitlab.ui.scripts_panel import ScriptsPanel
 from gaitlab.ui.session_panel import SessionPanel
+from gaitlab.ui.sessions_panel import SessionsPanel
 from gaitlab.ui.streams_panel import StreamsPanel
 
 
@@ -38,6 +40,8 @@ class MainWindow(QMainWindow):
         self._session = SessionPanel(self.ctx)
         self._channels = ChannelsPanel(self.ctx)
         self._metrics = MetricsPanel(self.ctx)
+        self._scripts = ScriptsPanel(self.ctx)
+        self._sessions = SessionsPanel(self.ctx)
         self._graphs = GraphWorkbench(self.ctx)
 
         left_tabs = QTabWidget()
@@ -45,6 +49,8 @@ class MainWindow(QMainWindow):
         left_tabs.addTab(self._session, "Participant")
         left_tabs.addTab(self._channels, "Channels")
         left_tabs.addTab(self._metrics, "Metrics")
+        left_tabs.addTab(self._scripts, "Scripts")
+        left_tabs.addTab(self._sessions, "Sessions")
         tip(
             left_tabs,
             "Typical flow: Connections → Participant → Channels → Record. Metrics & graphs are optional.",
@@ -95,6 +101,10 @@ class MainWindow(QMainWindow):
         )
 
         self._ui_tick = 0
+        # Tracks the last seek generation seen from the SessionsPanel so we
+        # can drop the graph time-axis buffers when the virtual clock jumps
+        # (seek back / stop / load new session).
+        self._last_seek_gen: int = -1
         self._timer = QTimer(self)
         self._timer.setInterval(50)
         self._timer.timeout.connect(self._on_tick)
@@ -138,13 +148,22 @@ class MainWindow(QMainWindow):
 
     def _on_tick(self) -> None:
         self.ctx.evaluator.tick()
-        t = time.perf_counter()
+        # Prefer the session player's virtual clock when a recording is
+        # loaded — that way playback speed (1× / 5× / MAX) actually shows
+        # in the graph's x-axis, matching what the samples are doing.
+        virt_t, seek_gen = self._sessions.virtual_clock()
+        if seek_gen != self._last_seek_gen:
+            self._graphs.reset_time_axis()
+            self._last_seek_gen = seek_gen
+        t = virt_t if virt_t is not None else time.perf_counter()
         if self._graphs.isVisible():
             self._graphs.tick(t)
         self._ui_tick += 1
         if self._ui_tick % 4 == 0:
             self._channels.refresh()
             self._metrics.refresh_preview()
+            self._scripts.tick_refresh()
+            self._sessions.tick_refresh()
             if hasattr(self._streams, "_refresh_connected_label"):
                 self._streams._refresh_connected_label()
         if self.ctx.recorder.is_recording:
@@ -153,6 +172,8 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event) -> None:  # noqa: N802
         if self.ctx.recorder.is_recording:
             self.ctx.recorder.stop()
+        self._sessions.shutdown()
+        self.ctx.scripts.disable_all()
         self.ctx.lsl.disconnect_all()
         self.ctx.xsens.stop()
         super().closeEvent(event)
