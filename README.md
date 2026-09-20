@@ -63,6 +63,14 @@ macOS / Linux: use `source .venv/bin/activate` instead of `.venv\Scripts\activat
 
 `sqrt(x)` `sq(x)` `pow(x,2)` `x^2` `abs(x)` `min(a,b)` `max(a,b)` `round(x)` plus `+ - * /`.
 
+## Custom analysis scripts
+
+Drop a `.py` file into `~/GaitLabScripts/` (or `data/scripts/` for reference scripts that ship with the app). Any subclass of `AnalysisScript` becomes a discoverable, enableable tool in the **Scripts** tab.
+
+Each script reads named input channels from the hub, publishes named outputs back into the hub (so they show in **Channels**, **Graphs**, and CSV recordings), and optionally broadcasts a per-script LSL outlet named `GaitLabScript_<id>` for Unity or LabRecorder to subscribe to.
+
+Ships with `gait.peak_detector` (mid-swing peak finder → `stride_count`, `stride_cadence_bpm`, `peak_event`, `signal_value`). Full authoring guide at [`data/scripts/README.md`](data/scripts/README.md).
+
 ## Tests
 
 ```bash
